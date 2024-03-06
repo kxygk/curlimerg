@@ -1,19 +1,60 @@
 (ns curlimerg
   (:require [babashka.http-client :as http]
+            [tick.core       :as tick]
             [babashka.curl :as curl]
             [clojure.java.io :as io]))
 
-;; This works!
+(defn
+  download-day-file
+  "Daily files are of the form
+  location: ftp://arthurhouftps.pps.eosdis.nasa.gov/sm/730/gpmdata/2011/08/01/gis/
+  file:     3B-DAY-GIS.MS.MRG.3IMERG.20110801-S000000-E235959.6360.V07B.tif
+  The `DAY` part indicates it's a daily aggregate image"
+  [date-inst
+   & [{:keys [directory-prefix
+              directory-suffix
+              file-prefix
+              file-suffix
+              username
+              password]
+         :or   {directory-prefix "ftp://arthurhouftps.pps.eosdis.nasa.gov/sm/730/gpmdata/"
+                ;;"3B-DAY-GIS.MS.MRG.3IMERG.20110801-S000000-E235959.6360.V07B.tif"
+                directory-suffix "/gis/"
+                file-prefix "3B-DAY-GIS.MS.MRG.3IMERG."
+                file-suffix "-S000000-E235959.6360.V07B.tif"
+                username ""
+                password ""}}]]
+  (let [date (->> date-inst
+                  tick/date )]
+  (let [file-path (str directory-prefix
+                       (tick/year date)
+                       "/"
+                       (->> date ;; `tick` can't get month's number directly
+                            (tick/format (tick/formatter "MM")))
+                       "/"
+                       (->> date ;; `tick` unlike `tick/day-of-month` preserves leading `0`
+                            (tick/format (tick/formatter "dd")))
+                       directory-suffix
+                       file-prefix
+                       (->> date
+                            (tick/format (tick/formatter "yyyyMMdd")))
+                       file-suffix)]
+    (println "\nFile being downloaded:\n"
+             file-path)
+    (io/copy (-> file-path
+                 (curl/get {:as       :bytes
+                            :raw-args ["-4"
+                                       "--ftp-ssl"
+                                       "--user"
+                                       (str username
+                                            ":"
+                                            password)]})
+                 :body)
+             (io/file "test3.tif")))))
 #_
-(io/copy
-  (-> "ftp://arthurhouftps.pps.eosdis.nasa.gov/sm/730/gpmdata/2011/08/01/gis/3B-MO-GIS.MS.MRG.3IMERG.20110801-S000000-E235959.08.V07B.tif"
-      (curl/get {:as       :bytes
-                 :raw-args ["-4"
-                            "--ftp-ssl"
-                            "--user"
-                            "username:password"]})
-      :body)
-  (io/file "test2.tif"))
+(download-day-file #inst"2011-08-01"
+                   {:username "dummy"
+                    :password "dummy"})
 
 ;; = `Rain`
 ;; == `IMERG`
