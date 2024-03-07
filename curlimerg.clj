@@ -1,6 +1,7 @@
 (ns curlimerg
   (:require [babashka.http-client :as http]
             [tick.core       :as tick]
+            [tick.alpha.interval]
             [babashka.curl :as curl]
             [clojure.java.io :as io]))
 
@@ -14,43 +15,63 @@
    & [{:keys [directory-prefix
               directory-suffix
               file-prefix
-              file-suffix
+              file-time
+              file-version
+              file-extension
               username
               password]
-         :or   {directory-prefix "ftp://arthurhouftps.pps.eosdis.nasa.gov/sm/730/gpmdata/"
-                ;;"3B-DAY-GIS.MS.MRG.3IMERG.20110801-S000000-E235959.6360.V07B.tif"
-                directory-suffix "/gis/"
-                file-prefix "3B-DAY-GIS.MS.MRG.3IMERG."
-                file-suffix "-S000000-E235959.6360.V07B.tif"
-                username ""
-                password ""}}]]
+       :or   {directory-prefix "ftp://arthurhouftps.pps.eosdis.nasa.gov/sm/730/gpmdata/"
+              ;; file ex: "3B-DAY-GIS.MS.MRG.3IMERG.20110801-S000000-E235959.6360.V07B.tif"
+              directory-suffix "/gis/"
+              file-prefix      "3B-DAY-GIS.MS.MRG.3IMERG." ;; daily
+              file-time        "-S000000-E235959" ;; always the same for daily files
+              ;; 6360 - weird day suffix that is 30 * DAY-OF-YEAR
+              file-version     "V07B"
+              file-extension   "tif"
+              username         ""
+              password         ""}}]]
   (let [date (->> date-inst
                   tick/date )]
-  (let [file-path (str directory-prefix
-                       (tick/year date)
-                       "/"
-                       (->> date ;; `tick` can't get month's number directly
-                            (tick/format (tick/formatter "MM")))
-                       "/"
-                       (->> date ;; `tick` unlike `tick/day-of-month` preserves leading `0`
-                            (tick/format (tick/formatter "dd")))
-                       directory-suffix
-                       file-prefix
-                       (->> date
-                            (tick/format (tick/formatter "yyyyMMdd")))
-                       file-suffix)]
-    (println "\nFile being downloaded:\n"
-             file-path)
-    (io/copy (-> file-path
-                 (curl/get {:as       :bytes
-                            :raw-args ["-4"
-                                       "--ftp-ssl"
-                                       "--user"
-                                       (str username
-                                            ":"
-                                            password)]})
-                 :body)
-             (io/file "test3.tif")))))
+    (let [weird-day-suffix (-> (tick.alpha.interval/new-interval (-> date
+                                                                     tick/year) ;; ugly .. to get day of year
+                                                                 date)
+                               tick/duration
+                               tick/days
+                               dec
+                               (* 30))]
+      (let [file-path (str directory-prefix
+                           (tick/year date)
+                           "/"
+                           (->> date ;; `tick` can't get month's number directly
+                                (tick/format (tick/formatter "MM")))
+                           "/"
+                           (->> date ;; `tick` unlike `tick/day-of-month` preserves leading `0`
+                                (tick/format (tick/formatter "dd")))
+                           directory-suffix
+                           file-prefix
+                           (->> date
+                                (tick/format (tick/formatter "yyyyMMdd")))
+                           file-time
+                           "."
+                           weird-day-suffix
+                           "."
+                           file-version
+                           "."
+                           file-extension)]
+        (println "\nFile being downloaded:\n"
+                 file-path)
+        (io/copy (-> file-path
+                     (curl/get {:as       :bytes
+                                :raw-args ["-4"
+                                           "--ftp-ssl"
+                                           "--user"
+                                           (str username
+                                                ":"
+                                                password)]})
+                     :body)
+                 (io/file (str (tick/format (tick/formatter "yyyy-MM-dd")
+                                            date)
+                               ".tif")))))))
 #_
 (download-day-file #inst"2011-08-01"
                    {:username "dummy"
