@@ -32,13 +32,14 @@
               password         ""}}]]
   (let [date (->> date-inst
                   tick/date )]
-    (let [weird-day-suffix (-> (tick.alpha.interval/new-interval (-> date
-                                                                     tick/year) ;; ugly .. to get day of year
-                                                                 date)
-                               tick/duration
-                               tick/days
-                               dec
-                               (* 30))]
+    (let [weird-day-suffix (->> (tick.alpha.interval/new-interval (-> date
+                                                                      tick/year) ;; ugly .. to get day of year
+                                                                  date)
+                                tick/duration
+                                tick/days
+                                dec
+                                (* 30)
+                                (format "%04d"))]
       (let [file-path (str directory-prefix
                            (tick/year date)
                            "/"
