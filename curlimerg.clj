@@ -93,8 +93,9 @@
     (recur (tick/inc (tick/date start-date-inst)) ;; converts to `LocalDate` .. but seems to still work
            end-date-inst)))
 #_
-(download-imerg-days #inst"2011-08-01"
-                     #inst"2011-08-03")
+(download-imerg-days #inst"2011-12-28"
+                     #inst"2012-01-03")
+
 
 ;; = `Rain`
 ;; == `IMERG`
